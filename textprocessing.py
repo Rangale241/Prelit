@@ -41,7 +41,7 @@ def format_flashcards(translated_lemmas):
     formatted = []
     for lemma, pos, translation in translated_lemmas:
         if not translation:
-            continue
+            formatted.append((lemma, "Translation Not Found"))
         if pos == "NOUN":
             back = f"{translation.title()}"
         elif pos == "VERB":
