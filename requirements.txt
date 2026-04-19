@@ -1,7 +1,0 @@
-streamlit
-setuptools
-wheel
-natasha==1.6.0
-argostranslate
-pymorphy2
-pymorphy2-dicts-ru
