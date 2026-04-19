@@ -1,0 +1,5 @@
+streamlit
+setuptools
+wheel
+natasha==1.6.0
+argostranslate
