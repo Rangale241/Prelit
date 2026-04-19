@@ -11,13 +11,22 @@ from datetime import datetime
 import argostranslate.package
 import argostranslate.translate
 
-argostranslate.package.update_package_index()
-packages = argostranslate.package.get_available_packages()
+@st.cache_resource
+def setup_argos():
+    argostranslate.package.update_package_index()
+    available_packages = argostranslate.package.get_available_packages()
 
-package = next(p for p in packages if p.from_code == "ru" and p.to_code == "en")
+    package = next(
+        p for p in available_packages
+        if p.from_code == "ru" and p.to_code == "en"
+    )
 
-path = package.download()
-argostranslate.package.install_from_path(path)
+    download_path = package.download()
+    argostranslate.package.install_from_path(download_path)
+
+    return True
+
+setup_argos()
 
 segmenter = Segmenter()
 morph_vocab = MorphVocab()
