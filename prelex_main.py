@@ -66,7 +66,7 @@ if text_input: #and st.button(":primary[Analyse]"):
     all_lemmas = lemmatize_text(text_input, segmenter, morph_tagger, morph_vocab)
     total_lemma_count = len(all_lemmas)
     seen_lemmas = load_seen_lemmas(SEEN_LEMMAS_PATH)
-    new_lemmas = [(lemma, pos, freq) for lemma, pos, freq in all_lemmas if lemma.strip().lower()] not in seen_lemmas
+    new_lemmas = [(lemma, pos, freq) for lemma, pos, freq in all_lemmas if lemma.strip().lower() not in seen_lemmas]
     
     new_lemma_output = "\n".join(f"{l:<20} {f}" for l, _, f in new_lemmas)
     new_lemma_volume = int(len(new_lemmas))
