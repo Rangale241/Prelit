@@ -1,5 +1,5 @@
 from natasha import Doc
-import argostranslate.translate
+from db import translate
 
 def lemmatize_text(text, segmenter, morph_tagger, morph_vocab):
     doc = Doc(text)
@@ -29,19 +29,18 @@ def translate_lemmas(lemmas_with_pos):
     translations = []
     for lemma, pos in lemmas_with_pos:
         try:
-            translation = argostranslate.translate.translate(lemma, "ru", "en")
+            translation=translate(lemma)
         except Exception as e:
             print(f"Translation failed for '{lemma}': {e}")
-            translation = ""
+            translation = None
         translations.append((lemma, pos, translation))
     return translations
-
 
 def format_flashcards(translated_lemmas):
     formatted = []
     for lemma, pos, translation in translated_lemmas:
         if not translation:
-            formatted.append((lemma, "Translation Not Found"))
+            continue
         if pos == "NOUN":
             back = f"{translation.title()}"
         elif pos == "VERB":
