@@ -1,43 +1,28 @@
 import streamlit as st
-from file_utils import load_seen_lemmas, read_file, export_to_anki, save_seen_lemmas, get_base_path
+from file_utils import  write_lemma_frequencies, load_seen_lemmas, read_file, export_to_anki, save_seen_lemmas, get_base_path
 from textprocessing import lemmatize_text, translate_lemmas, format_flashcards
 import os
 import subprocess
 import sys
 from pathlib import Path
+from navec import Navec
 from natasha import NewsEmbedding, NewsMorphTagger, Segmenter, MorphVocab
-from datetime import datetime
-
-import argostranslate.package
-import argostranslate.translate
-
-@st.cache_resource
-def setup_argos():
-    argostranslate.package.update_package_index()
-    available_packages = argostranslate.package.get_available_packages()
-
-    package = next(p for p in available_packages
-        if p.from_code == "ru" and p.to_code == "en")
-
-    download_path = package.download()
-    argostranslate.package.install_from_path(download_path)
-
-    return True
-
-setup_argos()
-
-
+model_path = ".natasha/data/emb/navec_hudlit_v1_12B_500K_300d_100q.tar"
+if not os.path.isfile(model_path):
+    st.error(f"Natasha model not found at: {model_path}")
+    st.stop()
+navec = Navec.load(model_path)
 segmenter = Segmenter()
 morph_vocab = MorphVocab()
 emb = NewsEmbedding()
 morph_tagger = NewsMorphTagger(emb)
-
+from datetime import datetime
 timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-#APP_DATA = Path(os.environ["LOCALAPPDATA"]) / "Prelex"
-#APP_DATA.mkdir(exist_ok=True)
-#VOCAB_REPO_PATH = APP_DATA / f"anki_export_{timestamp}.tsv"
-SEEN_LEMMAS_PATH = "extant_lemmas.tsv"
-#NEW_LEMMAS_PATH = APP_DATA / "new_lemmas.txt"
+APP_DATA = Path(os.environ["LOCALAPPDATA"]) / "Prelex"
+APP_DATA.mkdir(exist_ok=True)
+VOCAB_REPO_PATH = APP_DATA / f"anki_export_{timestamp}.tsv"
+SEEN_LEMMAS_PATH = APP_DATA / "extant_lemmas.tsv"
+NEW_LEMMAS_PATH = APP_DATA / "new_lemmas.txt"
 
 # Step 1 Display opening screen, provide text uploading options
 #
@@ -67,15 +52,11 @@ if text_input: #and st.button(":primary[Analyse]"):
     total_lemma_count = len(all_lemmas)
     seen_lemmas = load_seen_lemmas(SEEN_LEMMAS_PATH)
     new_lemmas = [(lemma, pos, freq) for lemma, pos, freq in all_lemmas if lemma.strip().lower() not in seen_lemmas]
-    
-    new_lemma_output = "\n".join(f"{l:<20} {f}" for l, _, f in new_lemmas)
+    freq_output_path = os.path.join(get_base_path(), "new_lemma_frequencies.txt")
+    write_lemma_frequencies(freq_output_path, [(l, f) for l, _, f in new_lemmas])
+    new_lemma_output = read_file(freq_output_path)
     new_lemma_volume = int(len(new_lemmas))
-    unknown_token_count = sum(freq for _, _, freq in new_lemmas)
-    st.text_area(f"Preview: :primary[{total_lemma_count}] total unique words. :primary[{new_lemma_volume}] \
-                  previously unseen shown below:", value=new_lemma_output[:500], height=200)
-    unknown_perc = int((unknown_token_count / word_counter) * 100)
-    text_comprehension = int(100 - unknown_perc)
-    st.write(f"Estimated Text Comprehension - :primary[~{text_comprehension}%]")
+    st.text_area(f"Preview: :primary[{total_lemma_count}] total unique words. :primary[{new_lemma_volume}] previously unseen shown below:", value=new_lemma_output[:500], height=200)
 
 # Step 3 - Determine output volume (percentage and absolute options) and filter results
 st.subheader(f":primary[Output Options]")
@@ -109,27 +90,31 @@ else:
     top_new_lemmas = new_lemmas[:top_n]
     st.write(f"Returning top :primary[{returned_value}] {return_status}")
 
+
+
 # Step 4 - Translate selected amount of lemmas and format into flashcards for export
 selected = [(l, p) for l, p, f in top_new_lemmas]
 translated_lemmas = translate_lemmas(selected)
 
 formatted_flashcards = format_flashcards(translated_lemmas)
-tsv_data = "\n".join("\t".join(row) for row in formatted_flashcards)
 # Step 5 - Provide options for export to SEEN VOCAB PATH and ANKI DECK 
 col1, col2 = st.columns([1, 1])
 
-
-if col1.download_button(f":primary[📤 Download Flashcards]", data=tsv_data,
-                        file_name=f"{timestamp}-anki_export.tsv",
-                        mime="text/tab-separated-values"):
-    st.text("Exporting Flashcards")
+if col1.button(":primary[📤 Export to Anki]"):
+    st.text("Exporting New Words")
+    export_to_anki(VOCAB_REPO_PATH, formatted_flashcards)
 
 if col2.button(":primary[🧠 Add to Known Words]"):
-    st.text("Feature Not Yet Available")
+    st.text("Adding to Known Words")
     save_these = [l for l, _, _ in top_new_lemmas]
     save_seen_lemmas(SEEN_LEMMAS_PATH, save_these)
 
 st.markdown(":primary[---]")
 
+if st.button(":primary[📂 Open Export Folder]"):
+    if sys.platform == "win32":
+        subprocess.Popen(f'explorer "{APP_DATA}"')
 
-
+#if col3.button(":primary[Open Export Folder]"):
+#    if sys.platform == "win32":
+#        subprocess.Popen(f'explorer "{APP_DATA}"')
